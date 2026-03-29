@@ -11,39 +11,107 @@ class CameraListScreen extends StatefulWidget {
 
 class _CameraListScreenState extends State<CameraListScreen> {
   Future<List> _fetchCameras() async {
-    final response = await http.get(Uri.parse('http://localhost:8000/get_cameras'));
+    final response = await http.get(
+      Uri.parse('http://localhost:8000/get_cameras'),
+    );
     if (response.statusCode == 200) return jsonDecode(response.body);
     return [];
+  }
+
+  void _logout() {
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("รายการกล้องทั้งหมด")),
+      appBar: AppBar(
+        title: const Text("รายการกล้องทั้งหมด"),
+        centerTitle: true,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: ElevatedButton.icon(
+              onPressed: _logout,
+              icon: const Icon(Icons.logout),
+              label: const Text('ออกจากระบบ'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
       body: FutureBuilder<List>(
         future: _fetchCameras(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
           final cameras = snapshot.data!;
+          if (cameras.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.videocam_off,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'ยังไม่มีกล้องที่เพิ่ม',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'กดปุ่ม + เพื่อเพิ่มกล้องใหม่',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
           return ListView.builder(
+            padding: EdgeInsets.all(16),
             itemCount: cameras.length,
             itemBuilder: (context, index) {
               final cam = cameras[index];
-              return ListTile(
-                leading: const Icon(Icons.videocam, color: Colors.blue),
-                title: Text(cam['camera_name']),
-                subtitle: Text("IP: ${cam['ip_address']}"),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (context) => LiveViewScreen(
-                      ip: cam['ip_address'],
-                      user: cam['username'],
-                      pass: cam['password'],
-                      name: cam['camera_name'],
-                    ),
-                  ));
-                },
+              return Card(
+                elevation: 2,
+                margin: EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListTile(
+                  contentPadding: EdgeInsets.all(16),
+                  leading: CircleAvatar(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    child: Icon(Icons.videocam, color: Colors.white),
+                  ),
+                  title: Text(
+                    cam['camera_name'],
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text("IP: ${cam['ip_address']}"),
+                  trailing: Icon(Icons.arrow_forward_ios),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LiveViewScreen(
+                          ip: cam['ip_address'],
+                          user: cam['username'],
+                          pass: cam['password'],
+                          name: cam['camera_name'],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               );
             },
           );
@@ -51,6 +119,7 @@ class _CameraListScreenState extends State<CameraListScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pushNamed(context, '/add'),
+        tooltip: 'เพิ่มกล้องใหม่',
         child: const Icon(Icons.add),
       ),
     );

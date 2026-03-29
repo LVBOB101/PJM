@@ -1,53 +1,398 @@
-1.สร้างสภาพแวดล้อมจำลอง (Virtual Environment): เพื่อไม่ให้ Library ตีกับโปรเจกต์อื่น
-    python -m venv venv
-2.เปิดใช้งาน venv:
-    .\venv\Scripts\activate
-3.ติดตั้ง Library ทั้งหมดตามรายการ:
-    pip install -r requirements.txt
-
-
-
 ==========================================================
-   คู่มือการรันระบบ PARKING AI (FLUTTER + FASTAPI + DOCKER)
+   คู่มือการติดตั้งและรันระบบ PARKING AI ตั้งแต่เริ่มต้น
 ==========================================================
 
-ขั้นตอนที่ 1: เตรียมฐานข้อมูลด้วย Docker
---------------------------------------
-1. เปิดโปรแกรม Docker Desktop และรอให้เครื่องหมายมุมซ้ายล่างเป็นสีเขียว
-2. เปิด Terminal (CMD หรือ PowerShell) แล้วใช้คำสั่งสร้าง Database:
-   
-   docker run --name parking-db -e POSTGRES_PASSWORD=1234 -e POSTGRES_DB=parking_db -p 5432:5432 -d postgres
+เอกสารนี้เป็นคู่มือสำหรับการติดตั้งและรันระบบ Parking AI System
+ตั้งแต่เริ่มต้นสำหรับผู้ที่ต้องการนำโปรเจกต์ไปพัฒนาต่อ
 
-3. ตรวจสอบว่า Container รันอยู่โดยพิมพ์: docker ps
+==========================================================
+   ข้อกำหนดเบื้องต้น (Prerequisites)
+==========================================================
 
-ขั้นตอนที่ 2: เตรียม Backend (Python FastAPI)
---------------------------------------
-1. เข้าไปที่โฟลเดอร์ backend:
+ก่อนเริ่มติดตั้ง ตรวจสอบว่าคุณมีสิ่งต่อไปนี้:
+
+1. **ระบบปฏิบัติการ**
+   - Windows 10/11 (แนะนำ)
+   - macOS หรือ Linux
+
+2. **ฮาร์ดแวร์ขั้นต่ำ**
+   - RAM: 8GB ขึ้นไป
+   - Storage: 5GB ว่าง
+   - CPU: Intel i5 หรือเทียบเท่า
+
+3. **ซอฟต์แวร์ที่ต้องติดตั้ง**
+
+   3.1 **Python 3.8+**
+   - ดาวน์โหลดจาก: https://www.python.org/downloads/
+   - ตรวจสอบ: python --version
+
+   3.2 **Flutter SDK**
+   - ดาวน์โหลดจาก: https://flutter.dev/docs/get-started/install
+   - เพิ่ม PATH และตรวจสอบ: flutter doctor
+
+   3.3 **Git**
+   - ดาวน์โหลดจาก: https://git-scm.com/downloads
+   - ตรวจสอบ: git --version
+
+   3.4 **Docker Desktop**
+   - ดาวน์โหลดจาก: https://www.docker.com/products/docker-desktop
+   - สำหรับฐานข้อมูล PostgreSQL
+
+   3.5 **Visual Studio Code (แนะนำ)**
+   - ดาวน์โหลดจาก: https://code.visualstudio.com/
+   - Extensions ที่แนะนำ: Flutter, Python, Dart
+
+==========================================================
+   ขั้นตอนที่ 1: โคลนและเตรียมโปรเจกต์
+==========================================================
+
+1. โคลนโปรเจกต์จาก Git:
+   git clone <repository-url>
+   cd PJM
+
+2. ตรวจสอบโครงสร้างโฟลเดอร์:
+   PJM/
+   ├── backend/          # FastAPI Backend
+   ├── parking_web/      # Flutter Web Frontend
+   ├── HOWTO.txt         # คู่มือนี้
+   └── README.md         # เอกสารหลัก
+
+==========================================================
+   ขั้นตอนที่ 2: ตั้งค่าฐานข้อมูลด้วย Docker
+==========================================================
+
+**วิธีที่ 1: ใช้ Docker Compose (แนะนำ - อัตโนมัติ)**
+
+1. เปิด Docker Desktop และรอให้พร้อมใช้งาน
+
+2. รันทั้งระบบด้วย Docker Compose:
+   docker-compose up -d
+
+   คำสั่งนี้จะ:
+   - สร้างและรันฐานข้อมูล PostgreSQL
+   - สร้างและรัน Backend API
+   - Backend จะรอฐานข้อมูลพร้อมก่อนเริ่มทำงาน
+
+3. ตรวจสอบ Container:
+   docker-compose ps
+
+   ควรเห็นทั้ง database และ backend รันอยู่
+
+4. ดู logs:
+   docker-compose logs -f
+
+**วิธีที่ 2: รันแยก (สำหรับพัฒนา)**
+
+1. สร้างฐานข้อมูล PostgreSQL เฉพาะ:
+   docker run --name parking-db \
+     -e POSTGRES_PASSWORD=1234 \
+     -e POSTGRES_DB=parking_db \
+     -e POSTGRES_USER=postgres \
+     -p 5432:5432 \
+     -d postgres:13
+
+2. ตรวจสอบ Container:
+   docker ps
+
+3. ทดสอบการเชื่อมต่อ (ไม่บังคับ):
+   docker exec -it parking-db psql -U postgres -d parking_db
+
+==========================================================
+   ขั้นตอนที่ 3: ตั้งค่า Backend (FastAPI)
+==========================================================
+
+**หากใช้ Docker Compose (ข้ามขั้นตอนนี้ไปได้เลย):**
+Backend จะรันอัตโนมัติใน container
+
+**หากรัน Backend แยก (สำหรับพัฒนา):**
+
+1. เข้าโฟลเดอร์ backend:
    cd backend
-2. สร้างสภาพแวดล้อมจำลอง (เลือกตามระบบปฏิบัติการ):
-   (Windows) -> python -m venv venv
-   (Mac/Linux) -> python3 -m venv venv
+
+2. สร้าง Virtual Environment:
+   python -m venv venv
+
 3. เปิดใช้งาน venv:
-   (Windows) -> venv\Scripts\activate
-   (Mac/Linux) -> source venv/bin/activate
-4. ติดตั้ง Library ทั้งหมด:
+   # Windows:
+   venv\Scripts\activate
+   # macOS/Linux:
+   source venv/bin/activate
+
+4. ติดตั้ง dependencies:
    pip install -r requirements.txt
-5. ตรวจสอบไฟล์ database.py ว่า DB_CONFIG ตรงกับที่ตั้งใน Docker:
-   - password: "1234"
-   - database: "parking_db"
-6. รันเซิร์ฟเวอร์:
+
+   รายการสำคัญ:
+   - fastapi, uvicorn
+   - opencv-python
+   - ultralytics
+   - psycopg2-binary
+   - aiortc, av (สำหรับ WebRTC/WebSocket)
+
+5. ตรวจสอบไฟล์ database.py:
+   เปิด database.py และตรวจสอบ DB_CONFIG:
+   - host: "localhost" (สำหรับรันแยก)
+   - หรือ DATABASE_URL environment variable (สำหรับ Docker)
+
+6. รัน Backend:
    python main.py
 
-ขั้นตอนที่ 3: เตรียม Frontend (Flutter Web)
---------------------------------------
-1. เปิด Terminal ใหม่แล้วเข้าไปที่โฟลเดอร์โครงการ Flutter:
-   cd parking_web
-2. ติดตั้ง Dependencies:
+   ควรเห็น: "INFO: Uvicorn running on http://0.0.0.0:8000"
+
+7. ทดสอบ API:
+   เปิด browser ไป: http://localhost:8000/health
+   ควรได้: {"status": "ok", "database": "connected"}
+
+==========================================================
+   ขั้นตอนที่ 4: ตั้งค่า Frontend (Flutter Web)
+==========================================================
+
+1. เข้าโฟลเดอร์ parking_web:
+   cd ../parking_web
+
+2. ตรวจสอบ Flutter:
+   flutter doctor
+
+   แก้ไขปัญหาที่พบ (Android SDK, etc.)
+
+3. ติดตั้ง dependencies:
    flutter pub get
-3. รันโปรแกรมผ่าน Chrome:
+
+   รายการสำคัญ:
+   - http
+   - web_socket_channel
+
+4. รัน Frontend:
    flutter run -d chrome
 
-ขั้นตอนที่ 4: ลำดับการใช้งานในหน้าเว็บ
+   ควรเปิด Chrome และแสดงแอป
+
+==========================================================
+   ขั้นตอนที่ 4.5: รัน Frontend บน Android (Mobile)
+==========================================================
+
+**ข้อกำหนดเพิ่มเติม:**
+- ติดตั้ง Android Studio: https://developer.android.com/studio
+- สร้าง Android Virtual Device (AVD) ใน Android Studio
+- หรือเชื่อมต่อ Android device จริง (เปิด Developer Options > USB Debugging)
+
+**ขั้นตอน:**
+
+1. เข้าโฟลเดอร์ parking_web:
+   cd parking_web
+
+2. ตรวจสอบ Flutter และ Android:
+   flutter doctor
+
+   แก้ไขปัญหา Android SDK และ licenses
+
+3. ติดตั้ง dependencies:
+   flutter pub get
+
+4. สร้างหรือเปิด Android Emulator:
+   # สร้าง emulator ใหม่:
+   flutter emulators --create
+   # หรือเปิดที่มีอยู่:
+   flutter emulators --launch <emulator_name>
+
+5. ดูอุปกรณ์ที่เชื่อมต่อ:
+   flutter devices
+
+   ควรเห็น Android emulator หรือ device
+
+6. รันบน Android:
+   flutter run -d <device_id>
+
+   เช่น: flutter run -d emulator-5554
+
+   แอปจะ build และรันบน Android device/emulator
+
+**หมายเหตุสำหรับ Mobile:**
+- แอปจะ auto-detect IP ของเซิร์ฟเวอร์ (ไม่ใช้ localhost)
+- ต้องรัน Backend บนเครื่องเดียวกันหรือ IP ที่เข้าถึงได้
+- สำหรับ production เปลี่ยนเป็น HTTPS และ domain จริง
+
+==========================================================
+   ขั้นตอนที่ 5: การใช้งานระบบ
+==========================================================
+
+**บน Web:**
+1. เปิด browser ไป: http://localhost:8080 (หรือ port ที่ Flutter กำหนด)
+
+**บน Android:**
+1. แอปจะเปิดขึ้นมาทันทีหลังรัน flutter run
+2. ใช้เหมือน Web แต่ UI ปรับให้เหมาะกับ mobile
+
+**ขั้นตอนการใช้งาน (ทั้ง Web และ Mobile):**
+
+1. สมัครสมาชิก:
+   - คลิก "สมัครสมาชิก"
+   - กรอก username และ password
+   - คลิก "สมัครสมาชิก"
+
+2. เข้าสู่ระบบ:
+   - กรอก username/password ที่สมัคร
+   - คลิก "เข้าสู่ระบบ"
+
+3. เพิ่มกล้อง:
+   - คลิกปุ่ม + (มุมล่างขวา)
+   - กรอกข้อมูลกล้อง RTSP:
+     - ชื่อกล้อง
+     - IP Address (เช่น: 192.168.1.100)
+     - Username/Password ของกล้อง
+   - คลิก "ทดสอบการเชื่อมต่อ"
+   - คลิก "บันทึก"
+
+4. ดูภาพสด:
+   - คลิกที่กล้องในรายการ
+   - ดูภาพพร้อม AI detection (YOLOv8)
+
+==========================================================
+   การปรับแต่งเพิ่มเติม
+==========================================================
+
+1. **เปลี่ยนพอร์ต**
+   - Backend: แก้ไข main.py line ที่มี uvicorn.run(..., port=8000)
+   - Frontend: Flutter จะเลือกพอร์ตอัตโนมัติ
+
+2. **เปลี่ยนฐานข้อมูล**
+   - แก้ไข database.py สำหรับ connection string
+   - หรือใช้ SQLite แทน PostgreSQL (เปลี่ยน import และ connection)
+
+3. **ปรับ AI Model**
+   - เปลี่ยนไฟล์ yolov8n.pt เป็นโมเดลอื่น
+   - ปรับ confidence ใน main.py (model(..., conf=0.4))
+
+4. **ปรับ UI**
+   - แก้ไข lib/main.dart สำหรับ theme
+   - แก้ไข lib/screens/ สำหรับ layout
+
+5. **เพิ่มฟีเจอร์**
+   - เพิ่ม API endpoints ใน backend/main.py
+   - เพิ่มหน้าจอใน lib/screens/
+   - เพิ่ม routing ใน lib/main.dart
+
+==========================================================
+   การจัดการระบบ (System Management)
+==========================================================
+
+**รันระบบด้วย Docker Compose:**
+- เริ่มระบบ: docker-compose up -d
+- หยุดระบบ: docker-compose down
+- ดู logs: docker-compose logs -f
+- รีสตาร์ท: docker-compose restart
+- ลบ volumes: docker-compose down -v (⚠️ ลบข้อมูลทั้งหมด)
+
+**รันแยก:**
+- หยุดฐานข้อมูล: docker stop parking-db && docker rm parking-db
+- ลบข้อมูล: docker volume rm pjm_postgres_data
+
+**อัปเดตโค้ด:**
+- Rebuild backend: docker-compose up -d --build backend
+- อัปเดต dependencies: เข้า container และ pip install
+
+==========================================================
+   การแก้ปัญหา (Troubleshooting)
+==========================================================
+
+1. **Backend ไม่รัน**
+   - เช็ค Python version: python --version (ต้อง 3.8+)
+   - เช็ค venv: ต้อง activate ก่อนรัน
+   - เช็ค dependencies: pip list | grep fastapi
+   - เช็ค port: netstat -ano | findstr 8000
+
+2. **Frontend ไม่ build**
+   - flutter clean && flutter pub get
+   - flutter doctor --android-licenses (ถ้าต้องการ Android)
+   - ลบ pubspec.lock และ pub get ใหม่
+
+3. **ฐานข้อมูลไม่เชื่อมต่อ**
+   - docker ps (เช็ค container รันอยู่)
+   - docker logs parking-db (ดู log)
+   - เช็ค credentials ใน database.py
+
+4. **กล้องไม่เชื่อมต่อ**
+   - เช็ค RTSP URL format: rtsp://user:pass@ip:554/stream2
+   - ทดสอบด้วย VLC player ก่อน
+   - เช็ค firewall และ network
+
+5. **WebRTC/WebSocket ไม่ทำงาน**
+   - ใช้ localhost หรือ HTTPS ใน production
+   - เช็ค browser console สำหรับ errors
+   - ใช้ polling แทน (comment WebSocket code)
+
+==========================================================
+   คำสั่งที่มีประโยชน์
+==========================================================
+
+# Backend
+cd backend
+venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+python main.py
+
+# Frontend Web
+cd parking_web
+flutter pub get
+flutter run -d chrome
+
+# Frontend Android
+cd parking_web
+flutter pub get
+flutter devices  # ดู device id
+flutter run -d <device_id>  # เช่น emulator-5554
+
+# Database
+docker start parking-db
+docker exec -it parking-db psql -U postgres -d parking_db
+
+# Development
+flutter clean && flutter pub get  # Reset Flutter
+pip freeze > requirements.txt     # Update requirements
+
+==========================================================
+   แหล่งข้อมูลเพิ่มเติม
+==========================================================
+
+- Flutter Docs: https://flutter.dev/docs
+- FastAPI Docs: https://fastapi.tiangolo.com/
+- YOLOv8: https://docs.ultralytics.com/
+- OpenCV: https://docs.opencv.org/
+- Docker: https://docs.docker.com/
+
+==========================================================
+   การ deploy ไป production
+==========================================================
+
+1. **Backend**: ใช้ Gunicorn + Uvicorn workers
+   pip install gunicorn
+   gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
+
+2. **Frontend**: Build สำหรับ web
+   flutter build web
+   serve build/web
+
+3. **Database**: ใช้ managed PostgreSQL (AWS RDS, etc.)
+
+4. **Reverse Proxy**: Nginx สำหรับ load balancing
+
+5. **SSL**: ใช้ Let's Encrypt สำหรับ HTTPS
+
+==========================================================
+   ติดต่อและสนับสนุน
+==========================================================
+
+หากพบปัญหา:
+1. อ่าน Troubleshooting ด้านบน
+2. เช็ค GitHub Issues
+3. สร้าง Issue ใหม่พร้อม log และ error message
+
+ผู้พัฒนา: Maeki
+Email: [your-email@example.com]
+GitHub: https://github.com/maeki
+
+==========================================================
+   อัปเดตล่าสุด: March 2026
+==========================================================
 --------------------------------------
 1. เมื่อหน้าเว็บเปิดขึ้นมา (หน้าแรกคือรายการกล้องซึ่งจะยังว่างอยู่)
 2. กดปุ่ม (+) มุมขวาล่างเพื่อไปหน้า "เพิ่มกล้อง"

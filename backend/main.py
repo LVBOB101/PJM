@@ -8,18 +8,53 @@ import threading
 import time
 import torch
 import functools
+import asyncio
+from contextlib import asynccontextmanager
 
 torch.load = functools.partial(torch.load, weights_only=False)
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 from ultralytics import YOLO 
+from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc.contrib.media import MediaPlayer
 
 # นำเข้าฟังก์ชันจาก database.py
-from database import init_db, add_camera_to_db, get_all_cameras
+from database import init_db, add_camera_to_db, get_all_cameras, create_user, authenticate_user, get_connection
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # โหลดโมเดล YOLOv8n
+    global model
+    import torch
+    global device
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = YOLO('yolov8n.pt')
+    print(f"✅ YOLO model loaded on {device}")
+    
+    # รอฐานข้อมูลพร้อมก่อน init
+    max_retries = 30  # รอ 30 ครั้ง (30 วินาที)
+    for i in range(max_retries):
+        try:
+            conn = get_connection()
+            if conn:
+                conn.close()
+                print("✅ Database connected successfully")
+                break
+        except Exception as e:
+            print(f"⏳ Waiting for database... ({i+1}/{max_retries}) - {e}")
+            time.sleep(1)
+    else:
+        print("❌ Could not connect to database after retries")
+        return
+
+    # Init database tables
+    init_db()
+    print("✅ Database initialized")
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 # ปลดล็อก CORS เพื่อให้ Flutter Web เข้าถึงได้
 app.add_middleware(
@@ -28,14 +63,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 1. โหลดโมเดล YOLOv8n (ตอนนี้จะผ่านฉลุยเพราะบรรทัด os.environ ด้านบน)
-model = YOLO('yolov8n.pt')
-
-# เริ่มต้นฐานข้อมูล
-@app.on_event("startup")
-def startup_event():
-    init_db()
 
 # --- Models ---
 class CameraRegister(BaseModel):
@@ -48,6 +75,207 @@ class CameraRequest(BaseModel):
     ip: str
     username: str
     password: str
+
+class WebRTCOffer(BaseModel):
+    sdp: str
+    type: str
+    camera: CameraRequest
+
+class UserRegister(BaseModel):
+    username: str
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+# --- User Management ---
+
+@app.post("/register")
+async def register(data: UserRegister):
+    created = create_user(data.username, data.password)
+    if not created:
+        raise HTTPException(status_code=400, detail="Username already exists or registration failed")
+    return {"status": "success", "message": "User registered"}
+
+
+@app.post("/login")
+async def login(data: UserLogin):
+    if authenticate_user(data.username, data.password):
+        return {"status": "success", "message": "Login successful"}
+    raise HTTPException(status_code=401, detail="Invalid username or password")
+
+
+# WebRTC connections
+pcs = set()
+
+@app.post("/offer")
+async def webrtc_offer(data: WebRTCOffer):
+    # สร้าง RTSP URL
+    url = f"rtsp://{data.camera.username}:{data.camera.password}@{data.camera.ip}:554/stream2"
+    
+    # สร้าง MediaPlayer สำหรับ RTSP
+    player = MediaPlayer(url, format="rtsp", options={
+        "rtsp_transport": "tcp",
+        "stimeout": "5000000"
+    })
+    
+    # สร้าง PeerConnection
+    pc = RTCPeerConnection()
+    pcs.add(pc)
+    
+    @pc.on("iceconnectionstatechange")
+    async def on_iceconnectionstatechange():
+        print(f"ICE connection state: {pc.iceConnectionState}")
+        if pc.iceConnectionState == "failed":
+            await pc.close()
+            pcs.discard(pc)
+    
+    # เพิ่ม video track
+    if player.video:
+        pc.addTrack(player.video)
+    
+    # ตั้ง remote description จาก offer
+    offer = RTCSessionDescription(sdp=data.sdp, type=data.type)
+    await pc.setRemoteDescription(offer)
+    
+    # สร้าง answer
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+    
+    return {
+        "sdp": pc.localDescription.sdp,
+        "type": pc.localDescription.type
+    }
+
+
+@app.websocket("/ws/live")
+async def websocket_live(websocket: WebSocket):
+    await websocket.accept()
+    print("🔗 WebSocket connected for live stream")
+    
+    # รับ camera data จาก client
+    try:
+        data = await websocket.receive_json()
+        ip = data['ip']
+        username = data['username']
+        password = data['password']
+        print(f"📡 Received camera data: IP={ip}, User={username}")
+    except Exception as e:
+        print(f"❌ Failed to receive camera data: {e}")
+        await websocket.close()
+        return
+    
+    # สร้าง RTSP URL
+    url = f"rtsp://{username}:{password}@{ip}:554/stream2"
+    print(f"🎥 RTSP URL: {url}")
+    
+    # เปิด camera
+    cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
+    cap.set(cv2.CAP_PROP_FPS, 60)
+
+    # เช็คว่าเปิด RTSP ได้สำเร็จก่อน (ป้องกันเชื่อมไม่ได้แต่เข้าสูตร loop)
+    if not cap.isOpened():
+        print("❌ Cannot open camera stream")
+        await websocket.send_text('error: cannot open camera stream')
+        await websocket.close()
+        return
+
+    print("✅ Camera stream opened successfully")
+    frame_count = 0
+
+    frame_queue = asyncio.Queue(maxsize=3)
+    stop_event = asyncio.Event()
+
+    # worker 1: capture camera frames into queue (drop oldest if backlog)
+    async def capture_worker():
+        while not stop_event.is_set():
+            success, frame = await asyncio.get_running_loop().run_in_executor(None, cap.read)
+            if not success or frame is None:
+                print("⚠️ Failed to read frame from camera")
+                await asyncio.sleep(0.05)
+                continue
+
+            if frame_queue.full():
+                try:
+                    _ = frame_queue.get_nowait()  # drop oldest
+                except asyncio.QueueEmpty:
+                    pass
+
+            await frame_queue.put(frame)
+            await asyncio.sleep(0)  # yield event loop
+
+    # worker 2: inference+encode+send
+    async def processing_worker():
+        nonlocal frame_count
+        avg_proc = 0.08
+        alpha = 0.1
+
+        while not stop_event.is_set():
+            try:
+                frame = await asyncio.wait_for(frame_queue.get(), timeout=2.0)
+            except asyncio.TimeoutError:
+                continue
+
+            t0 = time.time()
+            resized_frame = cv2.resize(frame, (640, 360))
+            half_precision = device == 'cuda'
+            results = model(resized_frame, verbose=False, conf=0.4, device=device, half=half_precision)
+            annotated_frame = results[0].plot()
+            success, buffer = cv2.imencode('.jpg', annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 50])
+
+            if not success:
+                print("⚠️ JPEG encoding failed")
+                continue
+
+            await websocket.send_bytes(buffer.tobytes())
+            frame_count += 1
+
+            proc_time = time.time() - t0
+            avg_proc = (1 - alpha) * avg_proc + alpha * proc_time
+            target_fps = min(30, max(8, int(1.0 / max(avg_proc, 0.001))))
+            sleep_time = max(0.0, 1.0 / target_fps - proc_time)
+
+            if frame_count % 50 == 0:
+                print(f"📊 Sent {frame_count} frames, avg_proc={avg_proc:.3f}s, target_fps={target_fps}, queue_size={frame_queue.qsize()}")
+
+            await asyncio.sleep(sleep_time)
+
+    capture_task = asyncio.create_task(capture_worker())
+    process_task = asyncio.create_task(processing_worker())
+
+    try:
+        done, pending = await asyncio.wait({capture_task, process_task}, return_when=asyncio.FIRST_EXCEPTION)
+        for t in done:
+            if t.exception():
+                raise t.exception()
+    except Exception as e:
+        print(f"❌ Error in streaming pipeline: {e}")
+    finally:
+        stop_event.set()
+        capture_task.cancel()
+        process_task.cancel()
+        cap.release()
+        print("🔚 Camera released, WebSocket closing")
+        await websocket.close()
+
+
+@app.get("/health")
+async def health():
+    conn = get_connection()
+    if conn is None:
+        raise HTTPException(status_code=503, detail="Cannot connect to database")
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+        cur.close()
+        conn.close()
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database health check failed: {e}")
+
 
 # --- Camera Manager ---
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"

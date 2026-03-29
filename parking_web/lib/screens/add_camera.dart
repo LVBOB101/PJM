@@ -129,92 +129,128 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text("เพิ่มกล้องใหม่", style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: BackButton(color: Colors.black),
+        title: Text("เพิ่มกล้องใหม่"),
+        centerTitle: true,
       ),
-      body: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Container(
-              color: Colors.grey[200],
-              padding: EdgeInsets.all(30),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTextField(_nameController, "ชื่อกล้อง"),
-                  _buildTextField(_ipController, "IP Address"),
-                  _buildTextField(_userController, "Username"),
-                  _buildTextField(_passController, "Password", isPassword: true),
-                  SizedBox(height: 30),
-                  Center(
-                    child: ElevatedButton.icon(
-                      onPressed: _toggleStream,
-                      icon: Icon(_isStreaming ? Icons.stop : Icons.videocam),
-                      label: Text(_isStreaming ? "Stop Test" : "Test Connection"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF5C6BC0),
-                        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Padding(
-              padding: EdgeInsets.all(30),
-              child: Column(
-                children: [
-                  Text("Preview กล้อง", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 20),
-                  Container(
-                    width: double.infinity,
-                    height: 400,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: _previewImageBase64 != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.memory(
-                              base64Decode(_previewImageBase64!),
-                              fit: BoxFit.cover,
-                              gaplessPlayback: true,
-                            ),
-                          )
-                        : Center(child: Text("ไม่มีสัญญาณภาพ", style: TextStyle(color: Colors.white))),
-                  ),
-                  SizedBox(height: 40),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+      body: Padding(
+        padding: EdgeInsets.all(24),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildActionButton("บันทึก", Colors.green, Icons.check, () {
-                        _saveCamera(); // TODO: เรียกฟังก์ชัน save
-                      }),
-                      SizedBox(width: 20),
-                      _buildActionButton("ยกเลิก", Colors.red[800]!, Icons.close, () {
-                        Navigator.pop(context);
-                      }),
+                      Text(
+                        'ข้อมูลกล้อง',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 24),
+                      _buildTextField(_nameController, "ชื่อกล้อง", Icons.camera_alt),
+                      _buildTextField(_ipController, "IP Address", Icons.network_check),
+                      _buildTextField(_userController, "Username", Icons.person),
+                      _buildTextField(_passController, "Password", Icons.lock, isPassword: true),
+                      SizedBox(height: 30),
+                      Center(
+                        child: ElevatedButton.icon(
+                          onPressed: _toggleStream,
+                          icon: Icon(_isStreaming ? Icons.stop : Icons.videocam),
+                          label: Text(_isStreaming ? "หยุดทดสอบ" : "ทดสอบการเชื่อมต่อ"),
+                        ),
+                      ),
                     ],
-                  )
-                ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+            SizedBox(width: 24),
+            Expanded(
+              flex: 3,
+              child: Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(30),
+                  child: Column(
+                    children: [
+                      Text(
+                        "ภาพตัวอย่างกล้อง",
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      Container(
+                        width: double.infinity,
+                        height: 400,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: _previewImageBase64 != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.memory(
+                                  base64Decode(_previewImageBase64!),
+                                  fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                ),
+                              )
+                            : Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.videocam_off,
+                                      size: 64,
+                                      color: Colors.white54,
+                                    ),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      "ไม่มีสัญญาณภาพ",
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                      SizedBox(height: 40),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildActionButton("บันทึก", Colors.green, Icons.check, () {
+                            _saveCamera();
+                          }),
+                          SizedBox(width: 20),
+                          _buildActionButton("ยกเลิก", Colors.red, Icons.close, () {
+                            Navigator.pop(context);
+                          }),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint, {bool isPassword = false}) {
+  Widget _buildTextField(TextEditingController controller, String hint, IconData icon, {bool isPassword = false}) {
     return Container(
       margin: EdgeInsets.only(bottom: 15),
       child: TextField(
@@ -222,10 +258,12 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
         obscureText: isPassword,
         decoration: InputDecoration(
           hintText: hint,
+          prefixIcon: Icon(icon),
           filled: true,
           fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(5)),
-          suffixIcon: Icon(Icons.cancel_outlined, color: Colors.grey),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
       ),
     );
@@ -238,8 +276,11 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
       label: Text(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
+        foregroundColor: Colors.white,
         padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
     );
   }
