@@ -12,10 +12,25 @@ class CameraListScreen extends StatefulWidget {
 
 class _CameraListScreenState extends State<CameraListScreen> {
   Future<List> _fetchCameras() async {
-    final response = await http.get(
-      Uri.parse('$BASE_URL/get_cameras'),
-    );
-    if (response.statusCode == 200) return jsonDecode(response.body);
+    try {
+      final response = await http.get(
+        Uri.parse('$BASE_URL/get_cameras'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        // Handle both wrapped and unwrapped responses
+        if (body is Map && body.containsKey('cameras')) {
+          return body['cameras'] ?? [];
+        }
+        return body is List ? body : [];
+      } else {
+        print('Error: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Fetch cameras error: $e');
+    }
     return [];
   }
 

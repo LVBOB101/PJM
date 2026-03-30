@@ -328,7 +328,8 @@ async def add_camera(data: CameraRegister):
 
 @app.get("/get_cameras")
 async def get_cameras():
-    return get_all_cameras()
+    cameras = get_all_cameras()
+    return {"cameras": cameras, "status": "success"} if cameras else {"cameras": [], "status": "success"}
 
 @app.post("/get_frame")
 async def get_frame(data: CameraRequest):
