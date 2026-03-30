@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/api.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final url = Uri.parse('http://localhost:8000/login');
+    final url = Uri.parse('$BASE_URL/login');
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},

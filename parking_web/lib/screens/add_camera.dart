@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../config/api.dart';
 
 class AddCameraScreen extends StatefulWidget {
   @override
@@ -49,7 +50,7 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
     
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/preview_camera'), 
+        Uri.parse('$BASE_URL/preview_camera'), 
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "ip": _ipController.text,
@@ -85,7 +86,7 @@ class _AddCameraScreenState extends State<AddCameraScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/add_camera'),
+        Uri.parse('$BASE_URL/add_camera'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "camera_name": _nameController.text,

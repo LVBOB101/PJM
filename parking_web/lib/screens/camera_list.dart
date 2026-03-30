@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'live_view.dart';
+import '../config/api.dart';
 
 class CameraListScreen extends StatefulWidget {
   const CameraListScreen({super.key});
@@ -12,7 +13,7 @@ class CameraListScreen extends StatefulWidget {
 class _CameraListScreenState extends State<CameraListScreen> {
   Future<List> _fetchCameras() async {
     final response = await http.get(
-      Uri.parse('http://localhost:8000/get_cameras'),
+      Uri.parse('$BASE_URL/get_cameras'),
     );
     if (response.statusCode == 200) return jsonDecode(response.body);
     return [];

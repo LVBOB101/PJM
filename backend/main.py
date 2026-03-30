@@ -60,6 +60,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=False,  # 🔥 เปลี่ยนตรงนี้
     allow_methods=["*"],
     allow_headers=["*"],
 )
